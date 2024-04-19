@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import pandas as pd
 from PIL import Image
 from io import BytesIO
 
@@ -111,6 +112,25 @@ if artist_input != "":
                 # dict keys: album name, dict values: if an album is selected or not
                 albums[album] = st.checkbox("\"" + album + "\"", value=True)
 
+        # getting the song duration for the tracks and adding date formatting
+        for i, track in enumerate(tracks_dict['tracks']):
+            track_id = track['id']
+            track_info_response = requests.get(spotify_base_url + 'tracks/{id}'.format(id=track_id), headers=headers)
+            track_info_dict = track_info_response.json()
+            tracks_dict['tracks'][i]['duration_ms'] = pd.to_datetime(track_info_dict['duration_ms'], unit='ms').strftime('%M:%S')
+
+        # creating the dataframe for the playlist preview table
+        tracks_data = []
+        for track in tracks_dict['tracks']:
+            track_data = {
+                'Track Name': track['name'],
+                'Album Name': track['album']['name'],
+                'Release Date': track['album']['release_date'],
+                'Duration': track['duration_ms']
+            }
+            tracks_data.append(track_data)
+        df_tracks = pd.DataFrame(tracks_data)
+
         st.divider()
 
         playlist_name = st.text_input("**Playlist Name**", placeholder="Name your concert playlist")
@@ -170,8 +190,33 @@ if artist_input != "":
                 st.image(cover_preview, caption="Current Cover: " + image_type)
 
         playlist_description = st.text_area("**(Optional) Playlist Description**", placeholder="Add a description for your playlist")
-        num_songs = st.number_input("**Playlist Song Count**", min_value=2, max_value=20, placeholder="Enter the number of songs to be added to your playlist")
+        num_songs = st.number_input("**Playlist Song Count (max. 10 songs)**", min_value=2, max_value=10, placeholder="Enter the number of songs to be added to your playlist")
+
+        st.divider()
+
+        st.header("**Playlist Preview**")
+
+        col5, col6 = st.columns(2)
+        with col5:
+            if playlist_name != "":
+                st.subheader(playlist_name)
+            else:
+                st.subheader("**Name:** N/A")
+            if playlist_description != "":
+                st.write("**Description:** " + playlist_description)
+            else:
+                st.write("**Description:** N/A")
+
+        with col6:
+            st.image(cover_preview)
+
+        # Filter tracks based on selected albums
+        selected_albums = [album for album, selected in albums.items() if selected]
+        df_filtered_tracks = df_tracks[df_tracks['Album Name'].isin(selected_albums)]
+
+        # Display DataFrame as a table
+        st.dataframe(df_filtered_tracks.head(num_songs).reset_index(drop=True), use_container_width=True)
 
         # implement logic for display playlist table and add playlist to spotify features
         #generate = st.button("Generate Playlist")
-        #add_playlist = st.button("Add to my Spotify")
+        add_playlist = st.button("Add to my Spotify")
