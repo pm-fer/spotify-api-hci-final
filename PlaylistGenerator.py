@@ -1,9 +1,10 @@
 import streamlit as st
 import requests
+from PIL import Image
+from io import BytesIO
 
-# add API key and secret
-spotify_key = "KEY"
-spotify_secret = "SECRET"
+spotify_key = "4deea18e81a04f68b25d4368813b0134"
+spotify_secret = "2d0e76be78b54422b2d9fae7c71f1ff9"
 spotify_base_url = 'https://api.spotify.com/v1/'
 auth_url = "https://accounts.spotify.com/api/token"
 auth_response = requests.post(auth_url, {
@@ -16,6 +17,23 @@ access_token = auth_data['access_token']
 headers = {
     'Authorization': 'Bearer {token}'.format(token=access_token)
 }
+
+def set_default_cover():
+    if artist_image_url != "":
+        return get_image_from_url(artist_image_url)
+    else:
+        return "default-playlist-cover.png"
+
+def get_image_from_url(image_url):
+    try:
+        image_response = requests.get(image_url)
+        if image_response.status_code == 200:
+            image_bytes = BytesIO(image_response.content)
+            return Image.open(image_bytes)
+        else:
+            return False
+    except Exception as e:
+        return False
 
 st.title("Concert Prep Playlist Generator")
 st.write("\n")
@@ -79,7 +97,8 @@ if artist_input != "":
                 st.write("**Song Preview:** N\A")
 
         with col2:
-            st.image(search_dict["artists"]["items"][artist_index]["images"][0]["url"])
+            artist_image_url = search_dict["artists"]["items"][artist_index]["images"][0]["url"]
+            st.image(artist_image_url)
 
         st.divider()
 
@@ -94,12 +113,65 @@ if artist_input != "":
 
         st.divider()
 
-        # additional logic pending
         playlist_name = st.text_input("**Playlist Name**", placeholder="Name your concert playlist")
+
+        cover_type = st.selectbox("**Playlist Cover Image Type**", options=["Default", "URL", "Upload Image", "Solid Color"])
+
+        col3, col4 = st.columns(2)
+        with col4:
+            playlist_cover = set_default_cover()
+            image_type = "Default"
+            if cover_type != "":
+                if cover_type == "Default":
+                    playlist_cover = set_default_cover()
+                if cover_type == "URL":
+                    # testing url: https://picsum.photos/200/300
+                    cover_url = st.text_input("**Cover URL**", placeholder="Enter the URL of the cover image")
+                    if cover_url != "":
+                        image = get_image_from_url(cover_url)
+                        if not image:
+                            st.error("Invalid image url.")
+                        else:
+                            st.success("Successfully extracted playlist cover image!")
+                            playlist_cover = image
+                            image_type = "URL"
+                if cover_type == "Upload Image":
+                    uploaded_image = st.file_uploader("**Choose an image**")
+                    if uploaded_image:
+                        file_extension = uploaded_image.name.split('.')[-1].lower()
+                        if file_extension not in ['jpg', 'jpeg', 'png']:
+                            st.error("Invalid image format. Please upload a JPG or PNG image.")
+                            image_type = "Default"
+                        else:
+                            st.success("Successfully uploaded playlist cover image!")
+                            uploaded_image_bytes = BytesIO(uploaded_image.read())
+                            playlist_cover = Image.open(uploaded_image_bytes)
+                            image_type = "Uploaded Image"
+                if cover_type == "Solid Color":
+                    color = st.color_picker("**Color Picker**", value="#43B3FF")
+                    playlist_cover = Image.new("RGB", (200,200), color)
+                    image_type = "Solid Color"
+        with col3:
+            st.write("\n")
+            if playlist_cover and playlist_cover != "":
+                width, height = playlist_cover.size
+                size = min(width, height)
+                left = int((width - size) / 2)
+                upper = int((height - size) / 2)
+                right = int(left + size)
+                lower = int(upper + size)
+                cropped_cover = playlist_cover.crop((left, upper, right, lower))
+
+                # image to be used for playlist
+                playlist_cover = cropped_cover.resize((500,500))
+
+                # preview smaller temp image in order to maintain quality of original image
+                cover_preview = playlist_cover.resize((200,200))
+                st.image(cover_preview, caption="Current Cover: " + image_type)
+
         playlist_description = st.text_area("**(Optional) Playlist Description**", placeholder="Add a description for your playlist")
         num_songs = st.number_input("**Playlist Song Count**", min_value=2, max_value=20, placeholder="Enter the number of songs to be added to your playlist")
 
-        # implement logic for playlist cover, display playlist table, and add playlist to spotify features
-        #cover_type = st.selectbox("**Playlist Cover Image Type**", options=["URL", "Upload Photo", "Solid Color"])
+        # implement logic for display playlist table and add playlist to spotify features
         #generate = st.button("Generate Playlist")
         #add_playlist = st.button("Add to my Spotify")
