@@ -196,7 +196,7 @@ if artist_input != "":
 
         st.header("**Playlist Preview**")
 
-        col5, col6 = st.columns(2)
+        col5, col6 = st.columns([2,1])
         with col5:
             if playlist_name != "":
                 st.subheader(playlist_name)
@@ -210,6 +210,7 @@ if artist_input != "":
         with col6:
             st.image(cover_preview)
 
+        st.write("\n")
         # Filter tracks based on selected albums
         selected_albums = [album for album, selected in albums.items() if selected]
         df_filtered_tracks = df_tracks[df_tracks['Album Name'].isin(selected_albums)]
