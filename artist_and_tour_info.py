@@ -53,7 +53,7 @@ def feature1():
             if index > 0:
                 attractionID = artist_search_dict.get("_embedded").get("attractions")[index - 1].get("id")
 
-                price_range = st.slider("Enter ideal ticket price range in US dollars", min_value=0, max_value=1000, step=1,
+                price_range = st.slider("Enter your ideal minimum and maximum ticket prices in US dollars", min_value=0, max_value=1000, step=1,
                                         value=(50, 200))
                 price_min = price_range[0]
                 price_max = price_range[1]
@@ -154,9 +154,17 @@ def feature1():
                             }
                         chart_data = pd.DataFrame.from_dict(results, orient='index')
                         # st.write(chart_data)
+                        help = st.toggle("Explain what I'm looking at")
+                        if help:
+                            st.info("The chart below displays concerts ticket prices in your state.\n"
+                                    "\nIf you see ORANGE in a chart, it means your minimum price is NOT enough to buy the minimum price tickets at that particular concert.\n"
+                                    "\nIf you see BLUE in a chart, it means your minimum price IS enough to buy the minimum price tickets at that particular concert!\n"
+                                    "\nIf you see GREEN in a chart, it means your maximum price IS enough to buy the maximum price tickets at that particular concert!\n"
+                                    "\nIf you see RED in a chart, it means your maximum price is NOT enough to buy the maximum price tickets at that particular concert.")
+
                         st.bar_chart(
                             chart_data, x="name", y=["maxpricetoohigh", "maxpricelow", "minpricetoohigh", "minpricelow"],
-                            color=["#1B9500", "#870101", "#19D859", "#FF1313"], width=800, height=500
+                            color=["#1B9500", "#870101", "#1982d8", "#ff9113"], width=800, height=500
                         )
 
                         for event in events_nearby_list_dict.get("_embedded", {}).get("events", []):
