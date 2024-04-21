@@ -2,14 +2,26 @@ import streamlit as st
 import requests
 import pandas as pd
 from PIL import Image
-from io import BytesIO
 import spotipy
 from spotipy import SpotifyOAuth
+from flask import Flask, redirect, request
+import urllib.parse
+import webbrowser
+import io
+from io import BytesIO
+import base64
 
-spotify_key = "2cf621747511442fba4cd98714459dec"
-spotify_secret = "e5358a011f5649ac9165fea0b2d82bc8"
+app = Flask(__name__)
+@app.route('/spotify_callback')
+def spotify_callback():
+    auth_code = request.args.get('code')
+    redirect_url = 'http://localhost:8501/?code=' + urllib.parse.quote(auth_code)
+    return redirect(redirect_url)
+
+spotify_key = "4deea18e81a04f68b25d4368813b0134"
+spotify_secret = "2d0e76be78b54422b2d9fae7c71f1ff9"
 spotify_base_url = 'https://api.spotify.com/v1/'
-redirect_uri = 'http://localhost:8501'
+redirect_uri = 'http://localhost:8501/'
 auth_url = "https://accounts.spotify.com/api/token"
 auth_response = requests.post(auth_url, {
     'grant_type': 'client_credentials',
@@ -22,14 +34,20 @@ headers = {
     'Authorization': 'Bearer {token}'.format(token=access_token)
 }
 
-sp = spotipy.Spotify(
-    auth_manager=SpotifyOAuth(
-        client_id=spotify_key,
-        client_secret=spotify_secret,
-        redirect_uri=redirect_uri,
-        scope='playlist-modify-public playlist-modify-private ugc-image-upload'
-    )
-)
+sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
+    client_id=spotify_key,
+    client_secret=spotify_secret,
+    redirect_uri=redirect_uri,
+    scope='playlist-modify-public playlist-modify-private ugc-image-upload'
+))
+
+if 'auth_complete' not in st.session_state:
+    st.session_state.auth_complete = False
+
+auth_code = ""
+if 'code' in st.query_params:
+    auth_code = st.query_params['code']
+    sp.auth_manager.get_access_token(auth_code)
 
 # pending configuration for main
 # st.set_page_config(page_title='Concert Prepper', page_icon=':musical_note:')
@@ -53,6 +71,18 @@ def get_image_from_url(image_url):
 
 st.title("Concert Prep Playlist Generator")
 st.write("\n")
+
+auth_url = sp.auth_manager.get_authorize_url()
+st.write("**If you plan to add your playlist to Spotify, click here and continue on the new tab.**")
+login = st.button("Log in to Spotify")
+if login:
+    webbrowser.open_new_tab(auth_url)
+if auth_code != "":
+    st.success("Successfully logged in! You may close the other tab.")
+else:
+    st.warning("You are currently not logged in.")
+
+st.divider()
 
 form = st.form("artist_search")
 artist_input = form.text_input("**Search for an Artist**", placeholder="Enter artist name")
@@ -208,17 +238,14 @@ if artist_input != "":
                 st.image(cover_preview, caption="Current Cover: " + image_type)
 
         playlist_description = st.text_area("**(Optional) Playlist Description**", placeholder="Add a description for your playlist")
-        if not playlist_description.strip():
-            playlist_description = ""
 
-        num_songs = st.number_input("**Playlist Song Count (max. 10 songs)**", min_value=2, max_value=10, placeholder="Enter the number of songs to be added to your playlist")
+        num_songs = st.number_input("**Playlist Song Count (max. 10 songs)**", value=10, min_value=2, max_value=10, placeholder="Enter the number of songs to be added to your playlist")
 
         st.divider()
 
-        st.header("**Playlist Preview**")
-
         col5, col6 = st.columns([2,1])
         with col5:
+            st.header("**Playlist Preview**")
             if playlist_name != "":
                 st.subheader(playlist_name)
             else:
@@ -237,24 +264,35 @@ if artist_input != "":
         df_filtered_tracks = df_tracks[df_tracks['Album Name'].isin(selected_albums)]
 
         # Display DataFrame as a table
-        columns_to_display = ['Track Name', 'Album Name', 'Release Date', 'Duration']
-        st.dataframe(df_filtered_tracks[columns_to_display].head(num_songs).reset_index(drop=True), use_container_width=True)
+        st.dataframe(df_filtered_tracks.head(num_songs).reset_index(drop=True), use_container_width=True)
 
-        # adding playlist to the user's spotify account logic
         # Iterate over the DataFrame rows and get the track URIs
         track_uris = []
         for index, row in df_filtered_tracks.iterrows():
             track_uri = row['Track URI']
             track_uris.append(track_uri)
+            if index == num_songs - 1:
+                break
 
-        col7, col8 = st.columns(2)
-        with col7:
-            username = st.text_input("**Username:**", placeholder="username")
-        with col8:
-            st.write("\n")
-            st.write("\n")
-            add_playlist = st.button("Add to my Spotify")
-            if add_playlist:
-                playlist = sp.user_playlist_create(username, playlist_name, playlist_description)
-                sp.playlist_add_items(playlist['id'], track_uris)
-                st.success('Playlist created successfully!')
+        st.divider()
+
+        # adding playlist to the user's spotify account logic
+        if auth_code != "":
+            username = st.text_input("**Spotify Username**", placeholder="Enter your username to continue.")
+            if username != "":
+                add_playlist = st.button("Add to my Spotify")
+                if add_playlist:
+                    try:
+                        playlist = sp.user_playlist_create(username, playlist_name, playlist_description)
+                        sp.playlist_add_items(playlist['id'], track_uris)
+
+                        img_byte_arr = io.BytesIO()
+                        playlist_cover.save(img_byte_arr, format='JPEG')
+                        img_byte_arr = img_byte_arr.getvalue()
+                        encoded_img = base64.b64encode(img_byte_arr).decode()
+
+                        sp.playlist_upload_cover_image(playlist['id'], encoded_img)
+                        st.success(f'Playlist "{playlist_name}" successfully created and added to your Spotify!')
+                    except Exception as e:
+                        st.error("Could not add playlist. Make sure your username is correct.")
+                        st.write(e)
