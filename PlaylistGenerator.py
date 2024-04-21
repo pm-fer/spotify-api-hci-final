@@ -3,10 +3,13 @@ import requests
 import pandas as pd
 from PIL import Image
 from io import BytesIO
+import spotipy
+from spotipy import SpotifyOAuth
 
-spotify_key = "4deea18e81a04f68b25d4368813b0134"
-spotify_secret = "2d0e76be78b54422b2d9fae7c71f1ff9"
+spotify_key = "2cf621747511442fba4cd98714459dec"
+spotify_secret = "e5358a011f5649ac9165fea0b2d82bc8"
 spotify_base_url = 'https://api.spotify.com/v1/'
+redirect_uri = 'http://localhost:8501'
 auth_url = "https://accounts.spotify.com/api/token"
 auth_response = requests.post(auth_url, {
     'grant_type': 'client_credentials',
@@ -18,6 +21,18 @@ access_token = auth_data['access_token']
 headers = {
     'Authorization': 'Bearer {token}'.format(token=access_token)
 }
+
+sp = spotipy.Spotify(
+    auth_manager=SpotifyOAuth(
+        client_id=spotify_key,
+        client_secret=spotify_secret,
+        redirect_uri=redirect_uri,
+        scope='playlist-modify-public playlist-modify-private ugc-image-upload'
+    )
+)
+
+# pending configuration for main
+# st.set_page_config(page_title='Concert Prepper', page_icon=':musical_note:')
 
 def set_default_cover():
     if artist_image_url != "":
@@ -126,7 +141,8 @@ if artist_input != "":
                 'Track Name': track['name'],
                 'Album Name': track['album']['name'],
                 'Release Date': track['album']['release_date'],
-                'Duration': track['duration_ms']
+                'Duration': track['duration_ms'],
+                'Track URI': track['uri']
             }
             tracks_data.append(track_data)
         df_tracks = pd.DataFrame(tracks_data)
@@ -134,6 +150,8 @@ if artist_input != "":
         st.divider()
 
         playlist_name = st.text_input("**Playlist Name**", placeholder="Name your concert playlist")
+        if not playlist_name.strip():
+            playlist_name = "Your concert prep playlist"
 
         cover_type = st.selectbox("**Playlist Cover Image Type**", options=["Default", "URL", "Upload Image", "Solid Color"])
 
@@ -190,6 +208,9 @@ if artist_input != "":
                 st.image(cover_preview, caption="Current Cover: " + image_type)
 
         playlist_description = st.text_area("**(Optional) Playlist Description**", placeholder="Add a description for your playlist")
+        if not playlist_description.strip():
+            playlist_description = ""
+
         num_songs = st.number_input("**Playlist Song Count (max. 10 songs)**", min_value=2, max_value=10, placeholder="Enter the number of songs to be added to your playlist")
 
         st.divider()
@@ -216,8 +237,24 @@ if artist_input != "":
         df_filtered_tracks = df_tracks[df_tracks['Album Name'].isin(selected_albums)]
 
         # Display DataFrame as a table
-        st.dataframe(df_filtered_tracks.head(num_songs).reset_index(drop=True), use_container_width=True)
+        columns_to_display = ['Track Name', 'Album Name', 'Release Date', 'Duration']
+        st.dataframe(df_filtered_tracks[columns_to_display].head(num_songs).reset_index(drop=True), use_container_width=True)
 
-        # implement logic for display playlist table and add playlist to spotify features
-        #generate = st.button("Generate Playlist")
-        add_playlist = st.button("Add to my Spotify")
+        # adding playlist to the user's spotify account logic
+        # Iterate over the DataFrame rows and get the track URIs
+        track_uris = []
+        for index, row in df_filtered_tracks.iterrows():
+            track_uri = row['Track URI']
+            track_uris.append(track_uri)
+
+        col7, col8 = st.columns(2)
+        with col7:
+            username = st.text_input("**Username:**", placeholder="username")
+        with col8:
+            st.write("\n")
+            st.write("\n")
+            add_playlist = st.button("Add to my Spotify")
+            if add_playlist:
+                playlist = sp.user_playlist_create(username, playlist_name, playlist_description)
+                sp.playlist_add_items(playlist['id'], track_uris)
+                st.success('Playlist created successfully!')
