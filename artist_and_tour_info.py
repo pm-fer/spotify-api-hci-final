@@ -30,7 +30,7 @@ def create_map_with_markers(venue_coords, venue_names):
     return m
 
 def feature1():
-    artist = st.text_input("Enter artist to search")
+    artist = st.text_input("**Search for an Artist**", placeholder="Enter artist name")
     if artist != "":
         artist_search_dict = get_list_of_artists(artist)
 
@@ -42,8 +42,8 @@ def feature1():
 
             index = 0
             if len(artist_search_list) >= 3:
-                st.info("Multiple artists found for \"" + artist + "\"! Please select the closest match below:")
-                artistID = st.selectbox("Select match", options=artist_search_list)
+                st.info("Multiple artists found for \"" + artist + "\". Please select the closest match below:")
+                artistID = st.selectbox("**Select Artist**", options=artist_search_list)
                 if artistID != "":
                     index = int(artist_search_list.index(artistID))
             else:
@@ -53,12 +53,13 @@ def feature1():
             if index > 0:
                 attractionID = artist_search_dict.get("_embedded").get("attractions")[index - 1].get("id")
 
-                price_range = st.slider("Enter your ideal minimum and maximum ticket prices in US dollars", min_value=0, max_value=1000, step=1,
+                state_code = st.text_input("**State Code**", placeholder="Enter your 2 letter state code")
+
+                price_range = st.slider("**Enter your ideal minimum and maximum ticket prices in US dollars**",
+                                        min_value=0, max_value=1000, step=1,
                                         value=(50, 200))
                 price_min = price_range[0]
                 price_max = price_range[1]
-
-                state_code = st.text_input("Enter your 2 Letter State code", placeholder="State code")
 
                 if state_code:
                     events_nearby_list_dict = generate_list_of_events_by_areacode_and_artist(state_code, attractionID)
@@ -132,28 +133,22 @@ def feature1():
                                         maxpricelow = ma
                                         maxpricetoohigh = 0
 
-                                results[i] = {
-                                    'name': nam,
-                                    'url': u,
-                                    'min_price': mi,
-                                    'max_price': ma,
-                                    'maxpricetoohigh': maxpricetoohigh,
-                                    'maxpricelow': maxpricelow,
-                                    'minpricetoohigh': minpricetoohigh,
-                                    'minpricelow': minpricelow
-                                }
                             results[i] = {
-                                'name': nam,
-                                'url': u,
-                                'min_price': mi,
-                                'max_price': ma,
-                                'maxpricetoohigh': maxpricetoohigh,
-                                'maxpricelow': maxpricelow,
-                                'minpricetoohigh': minpricetoohigh,
-                                'minpricelow': minpricelow
+                                'Event Name': nam,
+                                'URL': u,
+                                'Minimum Price': mi,
+                                'Maximum Price': ma,
+                                'Maximum Price Too High': maxpricetoohigh,
+                                'Maximum Price Low': maxpricelow,
+                                'Minimum Price Too High': minpricetoohigh,
+                                'Minimum Price Low': minpricelow
                             }
+
                         chart_data = pd.DataFrame.from_dict(results, orient='index')
                         # st.write(chart_data)
+
+                        st.divider()
+                        st.subheader("Ticket Prices in " + state_code)
                         help = st.toggle("Explain what I'm looking at")
                         if help:
                             st.info("The chart below displays concerts ticket prices in your state.\n"
@@ -163,7 +158,7 @@ def feature1():
                                     "\nIf you see RED in a chart, it means your maximum price is NOT enough to buy the maximum price tickets at that particular concert.")
 
                         st.bar_chart(
-                            chart_data, x="name", y=["maxpricetoohigh", "maxpricelow", "minpricetoohigh", "minpricelow"],
+                            chart_data, x="Event Name", y=["Maximum Price Too High", "Maximum Price Low", "Minimum Price Too High", "Minimum Price Low"],
                             color=["#1B9500", "#870101", "#1982d8", "#ff9113"], width=800, height=500
                         )
 
@@ -175,8 +170,11 @@ def feature1():
                                 venue_coords.append({'latitude': lat, 'longitude': lng})
                                 venue_names.append(venue['name'])
 
+                        st.divider()
+
                         # Create a map with the data
-                        st.components.v1.html(create_map_with_markers(venue_coords, venue_names)._repr_html_(), width=800,
+                        st.subheader("Concert Locations in " + state_code)
+                        st.components.v1.html(create_map_with_markers(venue_coords, venue_names)._repr_html_(), width=700,
                                               height=600)
 
 

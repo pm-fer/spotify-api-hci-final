@@ -2,6 +2,7 @@ import streamlit as st
 from artist_and_tour_info import feature1 #map and artist search
 api_key = "noF5kg6nwwXGlQ4UCnwm9YHGB8ADCjSt"
 
+st.set_page_config(page_title='Concert Prep', page_icon=':musical_note:')
 
 tab1, tab2, tab3 = st.tabs(["Concert Search", "Playlist Creator", "Concert Vibes"])
 
