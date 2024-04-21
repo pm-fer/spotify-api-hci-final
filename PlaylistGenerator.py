@@ -4,19 +4,11 @@ import pandas as pd
 from PIL import Image
 import spotipy
 from spotipy import SpotifyOAuth
-from flask import Flask, redirect, request
-import urllib.parse
+from spotipy.client import SpotifyException
 import webbrowser
 import io
 from io import BytesIO
 import base64
-
-app = Flask(__name__)
-@app.route('/spotify_callback')
-def spotify_callback():
-    auth_code = request.args.get('code')
-    redirect_url = 'http://localhost:8501/?code=' + urllib.parse.quote(auth_code)
-    return redirect(redirect_url)
 
 spotify_key = "4deea18e81a04f68b25d4368813b0134"
 spotify_secret = "2d0e76be78b54422b2d9fae7c71f1ff9"
@@ -49,9 +41,6 @@ if 'code' in st.query_params:
     auth_code = st.query_params['code']
     sp.auth_manager.get_access_token(auth_code)
 
-# pending configuration for main
-# st.set_page_config(page_title='Concert Prepper', page_icon=':musical_note:')
-
 def set_default_cover():
     if artist_image_url != "":
         return get_image_from_url(artist_image_url)
@@ -69,7 +58,7 @@ def get_image_from_url(image_url):
     except Exception as e:
         return False
 
-st.title("Concert Prep Playlist Generator")
+st.header("Playlist Creator")
 st.write("\n")
 
 auth_url = sp.auth_manager.get_authorize_url()
@@ -78,7 +67,7 @@ login = st.button("Log in to Spotify")
 if login:
     webbrowser.open_new_tab(auth_url)
 if auth_code != "":
-    st.success("Successfully logged in! You may close the other tab.")
+    st.success("Successfully logged in! You may now close the other tab.")
 else:
     st.warning("You are currently not logged in.")
 
@@ -115,9 +104,9 @@ if artist_input != "":
         with col1:
             st.subheader(artist_name)
 
-            genres = []
+            genres = set()
             for i in range(len(search_dict["artists"]["items"][artist_index]["genres"])):
-                genres.append(search_dict["artists"]["items"][artist_index]["genres"][i])
+                genres.add(search_dict["artists"]["items"][artist_index]["genres"][i])
 
             if len(genres) > 0:
                 genres_str = ", ".join(genres)
@@ -181,7 +170,7 @@ if artist_input != "":
 
         playlist_name = st.text_input("**Playlist Name**", placeholder="Name your concert playlist")
         if not playlist_name.strip():
-            playlist_name = "Your concert prep playlist"
+            playlist_name = artist_name + " Concert Prep Playlist"
 
         cover_type = st.selectbox("**Playlist Cover Image Type**", options=["Default", "URL", "Upload Image", "Solid Color"])
 
@@ -207,8 +196,8 @@ if artist_input != "":
                     uploaded_image = st.file_uploader("**Choose an image**")
                     if uploaded_image:
                         file_extension = uploaded_image.name.split('.')[-1].lower()
-                        if file_extension not in ['jpg', 'jpeg', 'png']:
-                            st.error("Invalid image format. Please upload a JPG or PNG image.")
+                        if file_extension not in ['jpg', 'jpeg']:
+                            st.error("Invalid image format. Please upload a JPG image.")
                             image_type = "Default"
                         else:
                             st.success("Successfully uploaded playlist cover image!")
@@ -237,9 +226,17 @@ if artist_input != "":
                 cover_preview = playlist_cover.resize((200,200))
                 st.image(cover_preview, caption="Current Cover: " + image_type)
 
-        playlist_description = st.text_area("**(Optional) Playlist Description**", placeholder="Add a description for your playlist")
+        playlist_description = st.text_area("**Playlist Description**", placeholder="Add an optional description for your playlist")
 
         num_songs = st.number_input("**Playlist Song Count (max. 10 songs)**", value=10, min_value=2, max_value=10, placeholder="Enter the number of songs to be added to your playlist")
+
+        # filter tracks based on selected albums
+        selected_albums = [album for album, selected in albums.items() if selected]
+        df_filtered_tracks = df_tracks[df_tracks['Album Name'].isin(selected_albums)]
+
+        if len(df_filtered_tracks) < num_songs:
+            st.warning("Unable to create a playlist with {num_songs} songs due to selected album filters.".format(num_songs=num_songs))
+            num_songs = len(df_filtered_tracks)
 
         st.divider()
 
@@ -259,40 +256,53 @@ if artist_input != "":
             st.image(cover_preview)
 
         st.write("\n")
-        # Filter tracks based on selected albums
-        selected_albums = [album for album, selected in albums.items() if selected]
-        df_filtered_tracks = df_tracks[df_tracks['Album Name'].isin(selected_albums)]
 
-        # Display DataFrame as a table
-        st.dataframe(df_filtered_tracks.head(num_songs).reset_index(drop=True), use_container_width=True)
+        # display DataFrame as a table with indices starting from 1
+        df_filtered_tracks.reset_index(drop=True, inplace=True)
+        df_filtered_tracks.index += 1
+        st.dataframe(df_filtered_tracks.head(num_songs), use_container_width=True)
 
         # Iterate over the DataFrame rows and get the track URIs
         track_uris = []
-        for index, row in df_filtered_tracks.iterrows():
-            track_uri = row['Track URI']
-            track_uris.append(track_uri)
-            if index == num_songs - 1:
-                break
+        empty_playlist = False
+        if len(df_filtered_tracks) == 0:
+            st.error("Your playlist is empty! Please update your selected album filters.".format(num_songs=num_songs))
+            empty_playlist = True
+        else:
+            for index, row in df_filtered_tracks.iterrows():
+                track_uri = row['Track URI']
+                track_uris.append(track_uri)
+                if index - 1 == num_songs - 1:
+                    break
 
         st.divider()
 
         # adding playlist to the user's spotify account logic
-        if auth_code != "":
-            username = st.text_input("**Spotify Username**", placeholder="Enter your username to continue.")
+        if auth_code != "" and not empty_playlist:
+            st.subheader("Add to Spotify")
+            username_form = st.form("username")
+            username = username_form.text_input("**Spotify Username**", placeholder="Enter your username to continue.")
+            add_playlist = username_form.form_submit_button(label='Add Playlist')
             if username != "":
-                add_playlist = st.button("Add to my Spotify")
                 if add_playlist:
                     try:
-                        playlist = sp.user_playlist_create(username, playlist_name, playlist_description)
-                        sp.playlist_add_items(playlist['id'], track_uris)
-
                         img_byte_arr = io.BytesIO()
                         playlist_cover.save(img_byte_arr, format='JPEG')
                         img_byte_arr = img_byte_arr.getvalue()
                         encoded_img = base64.b64encode(img_byte_arr).decode()
 
+                        playlist = sp.user_playlist_create(username, playlist_name, description=playlist_description)
+                        sp.playlist_add_items(playlist['id'], track_uris)
                         sp.playlist_upload_cover_image(playlist['id'], encoded_img)
                         st.success(f'Playlist "{playlist_name}" successfully created and added to your Spotify!')
+                    except SpotifyException as se:
+                        error_message = se.msg
+                        if "cannot create a playlist for another user" in error_message:
+                            st.error("Could not add playlist. Make sure your username is correct.")
+                        elif "not registered in the Developer Dashboard" in error_message:
+                            st.info("Could not add playlist. Our app is currently in development, so users must be "
+                                    "registered on our Spotify Developer Dashboard in order to use the app as intended.")
+                        else:
+                            st.error(error_message)
                     except Exception as e:
-                        st.error("Could not add playlist. Make sure your username is correct.")
-                        st.write(e)
+                        st.error("Unknown error.")
