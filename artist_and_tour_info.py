@@ -143,7 +143,7 @@ def concert_search(api_key):
                         # st.write(chart_data)
 
                         st.divider()
-                        st.subheader("Ticket Prices in " + state_code)
+                        st.subheader("Ticket Prices in " + state_code.upper())
                         help = st.toggle("Explain what I'm looking at")
                         if help:
                             st.info("The chart below displays concerts ticket prices in your state.\n"
@@ -168,6 +168,6 @@ def concert_search(api_key):
                         st.divider()
 
                         # Create a map with the data
-                        st.subheader("Concert Locations in " + state_code)
+                        st.subheader("Concert Locations in " + state_code.upper())
                         st.components.v1.html(create_map_with_markers(venue_coords, venue_names)._repr_html_(), width=700,
                                               height=600)

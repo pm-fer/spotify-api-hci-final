@@ -3,25 +3,10 @@ import requests
 import pandas as pd
 import plotly.express as px
 
-spotify_key = "4deea18e81a04f68b25d4368813b0134"
-spotify_secret = "2d0e76be78b54422b2d9fae7c71f1ff9"
-spotify_base_url = 'https://api.spotify.com/v1/'
-auth_url = "https://accounts.spotify.com/api/token"
-auth_response = requests.post(auth_url, {
-    'grant_type': 'client_credentials',
-    'client_id': spotify_key,
-    'client_secret': spotify_secret,
-})
-auth_data = auth_response.json()
-access_token = auth_data['access_token']
-headers = {
-    'Authorization': 'Bearer {token}'.format(token=access_token)
-}
-
-def vibe_check():
+def vibe_check(spotify_base_url, headers):
     st.write("\n")
 
-    form = st.form("artist_search")
+    form = st.form("vibe_artist_search")
     artist_input = form.text_input("**Search for an Artist**", placeholder="Enter artist name")
     search = form.form_submit_button(label='Search')
 

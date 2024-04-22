@@ -6,6 +6,7 @@ import spotipy
 from spotipy import SpotifyOAuth
 from spotipy.client import SpotifyException
 from artist_and_tour_info import concert_search #map and artist search
+from VibeChecker import vibe_check
 import webbrowser
 import io
 from io import BytesIO
@@ -45,7 +46,7 @@ if 'code' in st.query_params:
 
 st.set_page_config(page_title='Concert Prep', page_icon=':musical_note:')
 
-tab1, tab2, tab3 = st.tabs(["Playlist Creator", "Concert Search", "Concert Vibes"])
+tab1, tab2, tab3 = st.tabs(["Playlist Creator :musical_note:", "Concert Search :guitar:", "Artist Vibes :headphones:"])
 
 with tab1:
    st.header("Playlist Creator")
@@ -323,11 +324,10 @@ with tab1:
                   except Exception as e:
                      st.error("Unknown error.")
 
-
 with tab2:
    st.header("Concert Search")
    concert_search(tm_key)
 
 with tab3:
    st.header("Vibe Check an Artist")
-   st.write("Pls put something here 2")
+   vibe_check(spotify_base_url, headers)
