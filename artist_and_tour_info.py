@@ -3,33 +3,28 @@ import requests
 import pandas as pd
 import folium
 
-api_key = "noF5kg6nwwXGlQ4UCnwm9YHGB8ADCjSt"
+def concert_search(api_key):
+    @st.cache_data
+    def generate_list_of_events_by_areacode_and_artist(state_code, attractionID):
+        events_nearby_list_url = f"https://app.ticketmaster.com/discovery/v2/events.json?size=30&attractionId={attractionID}&stateCode={state_code}&apikey={api_key}"
+        events_nearby_list_dict = requests.get(events_nearby_list_url).json()
+        return events_nearby_list_dict
 
+    @st.cache_data
+    def get_list_of_artists(artist):
+        artist_list_url = f"https://app.ticketmaster.com/discovery/v2/attractions.json?classificationName=Music&keyword={artist}&apikey={api_key}"
+        artist_list_dict = requests.get(artist_list_url).json()
+        return artist_list_dict
 
-@st.cache_data
-def generate_list_of_events_by_areacode_and_artist(state_code, attractionID):
-    events_nearby_list_url = f"https://app.ticketmaster.com/discovery/v2/events.json?size=30&attractionId={attractionID}&stateCode={state_code}&apikey={api_key}"
-    events_nearby_list_dict = requests.get(events_nearby_list_url).json()
-    return events_nearby_list_dict
+    def create_map_with_markers(venue_coords, venue_names):
+        m = folium.Map(location=[venue_coords[0]['latitude'], venue_coords[0]['longitude']], zoom_start=10)
 
+        for i, venue_coord in enumerate(venue_coords):
+            popup = folium.Popup(venue_names[i], parse_html=True)
+            folium.Marker([venue_coord['latitude'], venue_coord['longitude']], popup=popup).add_to(m)
 
-@st.cache_data
-def get_list_of_artists(artist):
-    artist_list_url = f"https://app.ticketmaster.com/discovery/v2/attractions.json?classificationName=Music&keyword={artist}&apikey={api_key}"
-    artist_list_dict = requests.get(artist_list_url).json()
-    return artist_list_dict
+        return m
 
-
-def create_map_with_markers(venue_coords, venue_names):
-    m = folium.Map(location=[venue_coords[0]['latitude'], venue_coords[0]['longitude']], zoom_start=10)
-
-    for i, venue_coord in enumerate(venue_coords):
-        popup = folium.Popup(venue_names[i], parse_html=True)
-        folium.Marker([venue_coord['latitude'], venue_coord['longitude']], popup=popup).add_to(m)
-
-    return m
-
-def feature1():
     artist = st.text_input("**Search for an Artist**", placeholder="Enter artist name")
     if artist != "":
         artist_search_dict = get_list_of_artists(artist)
@@ -176,6 +171,3 @@ def feature1():
                         st.subheader("Concert Locations in " + state_code)
                         st.components.v1.html(create_map_with_markers(venue_coords, venue_names)._repr_html_(), width=700,
                                               height=600)
-
-
-
