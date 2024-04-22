@@ -100,7 +100,7 @@ with tab1:
 
       # format func allows us to save index of the option that is chosen instead of the option label (makes more sense in this case)
       artist_index = st.selectbox("**Select Artist**", range(len(artist_results)),
-                                  format_func=lambda x: artist_results[x], index=None)
+                                  format_func=lambda x: artist_results[x], index=None, key=1)
 
       if artist_index != None:
          artist_name = artist_results[artist_index]
