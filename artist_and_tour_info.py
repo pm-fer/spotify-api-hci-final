@@ -25,7 +25,10 @@ def concert_search(api_key):
 
         return m
 
-    artist = st.text_input("**Search for an Artist**", placeholder="Enter artist name")
+    form = st.form("concert_artist_search")
+    artist = form.text_input("**Search for an Artist**", placeholder="Enter artist name")
+    search = form.form_submit_button(label='Search')
+
     if artist != "":
         artist_search_dict = get_list_of_artists(artist)
 
@@ -77,6 +80,7 @@ def concert_search(api_key):
                             # st.text("nam success!")
                             u = events_nearby_list_dict.get("_embedded").get("events")[i].get("url")
                             # st.text("u success!")
+                            none_found = False
                             if events_nearby_list_dict.get("_embedded").get("events")[i].get("priceRanges") is None or \
                                     events_nearby_list_dict.get("_embedded").get("events")[i].get("priceRanges")[0] is None:
                                 mi = -1
@@ -85,8 +89,8 @@ def concert_search(api_key):
                                 maxpricetoohigh = 0
                                 maxpricelow = 0
                                 minpricelow = 0
-                                st.warning("No Price Ranges found")
                                 # st.text("ma and mi -1 success!")
+                                none_found = True
                             else:
                                 if events_nearby_list_dict.get("_embedded").get("events")[i].get("priceRanges")[0].get(
                                         "min") is None:
@@ -138,7 +142,8 @@ def concert_search(api_key):
                                 'Minimum Price Too High': minpricetoohigh,
                                 'Minimum Price Low': minpricelow
                             }
-
+                        if none_found:
+                            st.warning("No Price Ranges found")
                         chart_data = pd.DataFrame.from_dict(results, orient='index')
                         # st.write(chart_data)
 

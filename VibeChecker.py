@@ -4,8 +4,6 @@ import pandas as pd
 import plotly.express as px
 
 def vibe_check(spotify_base_url, headers):
-    st.write("\n")
-
     form = st.form("vibe_artist_search")
     artist_input = form.text_input("**Search for an Artist**", placeholder="Enter artist name")
     search = form.form_submit_button(label='Search')

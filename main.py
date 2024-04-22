@@ -50,7 +50,9 @@ tab1, tab2, tab3 = st.tabs(["Playlist Creator :musical_note:", "Concert Search :
 
 with tab1:
    st.header("Playlist Creator")
-
+   st.subheader(":rainbow[Create a playlist to help you prep for an upcoming concert!]")
+   st.write("**If you plan to add your playlist to Spotify, "
+            "click here and continue on the new tab.**")
    def set_default_cover():
       if artist_image_url != "":
          return get_image_from_url(artist_image_url)
@@ -69,10 +71,8 @@ with tab1:
       except Exception as e:
          return False
 
-   st.write("\n")
-
    auth_url = sp.auth_manager.get_authorize_url()
-   st.write("**If you plan to add your playlist to Spotify, click here and continue on the new tab.**")
+
    login = st.button("Log in to Spotify")
    if login:
       webbrowser.open_new_tab(auth_url)
@@ -326,8 +326,12 @@ with tab1:
 
 with tab2:
    st.header("Concert Search")
+   st.subheader(":rainbow[Get ticket and location info on concerts in your state!]")
+   st.write("\n")
    concert_search(tm_key)
 
 with tab3:
-   st.header("Vibe Check an Artist")
+   st.header("Vibe Checker")
+   st.subheader(":rainbow[Check out the vibes you can expect at an artist's concert!]")
+   st.write("\n")
    vibe_check(spotify_base_url, headers)
