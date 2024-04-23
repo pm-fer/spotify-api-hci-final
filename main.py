@@ -160,10 +160,7 @@ with tab1:
 
          # getting the song duration for the tracks and adding date formatting
          for i, track in enumerate(tracks_dict['tracks']):
-            track_id = track['id']
-            track_info_response = requests.get(spotify_base_url + 'tracks/{id}'.format(id=track_id), headers=headers)
-            track_info_dict = track_info_response.json()
-            tracks_dict['tracks'][i]['duration_ms'] = pd.to_datetime(track_info_dict['duration_ms'],
+            tracks_dict['tracks'][i]['duration_ms'] = pd.to_datetime(tracks_dict['tracks'][i]['duration_ms'],
                                                                      unit='ms').strftime('%M:%S')
 
          # creating the dataframe for the playlist preview table
@@ -319,10 +316,12 @@ with tab1:
                      elif "not registered in the Developer Dashboard" in error_message:
                         st.info("Could not add playlist. Our app is currently in development, so users must be "
                                 "registered on our Spotify Developer Dashboard in order to use the app as intended.")
+                     elif "Max Retries" in error_message:
+                        st.error("Rate limit reached. Please wait a while before trying again.")
                      else:
                         st.error(error_message)
                   except Exception as e:
-                     st.error("Unknown error.")
+                     st.warning("Something went wrong. Playlist added with default image.")
 
 with tab2:
    st.header("Concert Search")
